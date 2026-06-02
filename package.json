@@ -1,0 +1,12 @@
+{
+  "name": "briefing-pusher",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "googleapis": "^140.0.0",
+    "node-cron": "^3.0.3",
+    "dotenv": "^16.4.5",
+    "axios": "^1.7.2"
+  }
+}
