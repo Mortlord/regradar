@@ -1,7 +1,15 @@
 import 'dotenv/config';
 import cron from 'node-cron';
+import http from 'http';
 import { fetchLatestBriefing } from './drive.js';
 import { sendMessage } from './telegram.js';
+
+// Minimaler HTTP-Server damit Railway den Prozess nicht beendet
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('briefing-pusher running');
+}).listen(PORT, () => console.log(`[briefing-pusher] healthcheck auf Port ${PORT}`));
 
 function extractTop3(content) {
   const lines = content.split('\n');
@@ -47,7 +55,6 @@ let pollingJob = null;
 let delivered = false;
 
 async function checkAndPush() {
-  // Sicherheitsnetz: nach 20:00 Uhr aufhören
   const now = new Date();
   const hourBerlin = new Date(
     now.toLocaleString('en-US', { timeZone: 'Europe/Berlin' })
@@ -68,7 +75,6 @@ async function checkAndPush() {
       return;
     }
 
-    // Briefing gefunden: pushen und Polling beenden
     const { header, topics } = extractTop3(briefing.content);
     const msg = topics.length
       ? buildMessage(header, topics)
@@ -86,11 +92,17 @@ async function checkAndPush() {
 
 // Montag 09:00 Uhr MEZ: Polling starten
 cron.schedule('0 9 * * 1', () => {
-  if (delivered) delivered = false; // Wochentakt zurücksetzen
+  if (delivered) delivered = false;
   console.log('[briefing-pusher] Montag 09:00 – starte Polling');
   pollingJob = cron.schedule('*/15 * * * *', checkAndPush, {
     timezone: 'Europe/Berlin',
   });
 }, { timezone: 'Europe/Berlin' });
+
+// TEST: beim Start einmal sofort prüfen
+if (process.env.TEST_ON_START === 'true') {
+  console.log('[briefing-pusher] TEST_ON_START aktiv – prüfe sofort');
+  checkAndPush();
+}
 
 console.log('[briefing-pusher] läuft, wartet auf Montag 09:00 MEZ');
